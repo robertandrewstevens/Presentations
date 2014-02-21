@@ -1,0 +1,154 @@
+# University of Illinois at Urbana-Champaign Research Park Big Data Summit
+
+by Robert A. Stevens, John Deere, December 6, 2013
+
+The information, views, and opinions contained in this presentation are those of the author and do not necessarily reflect the views and opinions of John Deere.
+
+# What is Analytics?  Turning Data into Decisions
+
+## Analytics is the application of information technology, statistics, and decision sciences to turn data into actionable information that solves a business problem.
+
+```{r fig.width = 10, fig.height = 7.6, echo = FALSE, warning = FALSE}
+library(SixSigma, quietly = TRUE)
+inputs <-c ("Data")
+outputs <- c("Decisions")
+steps <- c("IT", "Statistics", "Decision Sciences")
+io <- list()
+io[[1]] <- list("Servers", "Databases", "Software", "etc.")
+io[[2]] <- list("Data Mining", "Machine Learning", "Modeling", "etc.")
+io[[3]] <- list("Framing", "Modeling", "Optimizing", "etc.")
+param <- list()
+param[[1]] <- list(c("Technology", "C"), c("+ People", "C"), c("= Capability", "Cr"))
+param[[2]] <- list(c("Technology", "C"), c("+ People", "C"), c("= Capability", "Cr"))
+param[[3]] <- list(c("Technology", "C"), c("+ People", "C"), c("= Capability", "Cr"))
+feat <- list()
+feat[[1]] <- list("Cost", "Timing", "Quality")
+feat[[2]] <- list("Cost", "Timing", "Quality")
+feat[[3]] <- list("Cost", "Timing", "Quality")
+ss.pMap(steps, inputs, outputs, io, param, feat, sub = "Analytics")
+```
+
+## “It’s not the figures themselves,” she said finally, “it’s what you do with them that matter.”
+
+From *Advanced Theory of Statistics Vol.2* by Kendall & Stuart and *Repairable Systems Reliability* by Ascher & Feingold
+
+**You must TAKE ACTION to realize any value from all the time spent on IT, Statistics and Decision Sciences.**
+
+# The Road to Earlier Discovery and Shorter Decision Cycles
+
+```{r ggplot, fig.width = 10, fig.height = 7.5, echo=FALSE}
+library(ggplot2, quietly = TRUE)
+Phase <- c(rep("Today", 3), rep("Transition", 3), rep("Vision", 3))
+Activity <- rep(c("IT", "Statistics", "Decisions"), 3)
+Activity <- ordered(Activity, c("IT", "Statistics", "Decisions"))
+Color <- rep(c("red", "yellow", "green"), 3)
+Time <- c(70, 20, 10, 33.3, 33.3, 33.3, 10, 20, 70)
+plotDF <- data.frame(Phase, Activity, Color, Time)
+qplot(Activity, Time, data = plotDF, geom = "bar", stat="identity", fill = Activity) + 
+  facet_wrap(~ Phase) +
+  labs(x = "Analytics Activity", y = "Time (%)") +
+  scale_fill_manual(values=Color) +
+  theme(legend.position = "none")
+```
+
+## Today - Primarily IT focused
+
+* Begin to enhance IT with Statistics and Decision Sciences
+
+## Transition - More Statistics and Decision Sciences
+
+* IT technology improves and costs drop
+
+* Data Mining to discover relationships
+
+* Decisions start to drive IT and Statistics
+
+## Vision - Primarily Decision focused
+
+* Low cost, automated IT
+
+* Machine Learning to automate statistics
+
+* Humans spend most of their time on decisions
+
+**How long will this journey take?  I've been told it took FEA/CFD 20 years to get to where they are today.  Let's hope we can accelerate our rate of progress.**
+
+# Big Data in R&D
+
+## Primarily machine data:  GPS and CAN (Controller Area Network)
+
+* Volume:  immeasurable, but we don’t keep most because we cannot afford to; the more we can afford to keep, the more we will keep
+
+* Velocity:  30 minutes (JDLink); 10 millisecond to 1 second (MGDL); 100,000 per second (eDAQ)
+
+* Variety:  different sampling rates; same thing with different names; different things with same name
+
+* Value:  TBD – that’s my job
+
+**Unfortunately, in R&D all Statistical and Decision Science work is done on PCs**
+
+Reference:  http://en.wikipedia.org/wiki/CAN_bus
+
+# Goal:  Move Statistical and Decision Science work off of PCs and onto a server
+
+## Big Data Studies/Solutions
+
+* IBM Netezza with Revolution R
+
+* IBM BigInsights (Hadoop) with R (requires JAQL)
+
+* SAP HANA with R
+
+* Cloudera/Hortonworks Hadoop with R
+
+* Linux cluster with Hadoop, R, RHIPE, BigR, etc.
+
+* Savvis Cloud???
+
+## And consequently, I get invited to IT meetings that I never did before because nobody knows what R is
+
+**Our original strategy was to select ONE (the *Highlander* approach), but now “we” realize there must be a Big Data Ecosystem (a.k.a. a System of Systems)**
+
+# My work/life philosophy
+
+## Old:  A good day at work is being able to do statistics
+
+* Very rare
+
+## New:  A good day at work is being able to use R
+
+* Becoming more common – Thank you, Big Data!
+
+# R and Big Data Personal Observations from a Business Perspective
+
+## Principal-Agent Problem Example:  Empire-building
+
+* Old:  adding staff to increase your org chart
+
+* New:  adding expensive, proprietary hardware and software (and staff to run them) to increase your budget and span of control
+
+## Moral Hazard Problem:
+
+* Asking and accepting advice from the same people whose career and career path depend on the answer they provide
+
+## Rhetorical Question:
+
+* What would a shareholder or an analyst think if they found out you spent 10X, 20X, or even 100X for hardware or software instead of a Linux cluster with open source software that offered the same or even more benefits?
+
+References:
+
+http://en.wikipedia.org/wiki/Principal%E2%80%93agent_problem
+
+http://en.wikipedia.org/wiki/Empire-building
+
+# Contact Information
+
+* Business e-mail stevensroberta@johndeere.com
+
+* Personal e-mail	robertandrewstevens@gmail.com
+
+* LinkedIn http://www.linkedin.com/pub/robert-andrew-stevens-cfa/6a/a04/315
+
+* Twitter 	https://twitter.com/RobertAndrewSt3
+
+* GitHub https://github.com/robertandrewstevens
