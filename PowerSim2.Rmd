@@ -1,0 +1,548 @@
+# Power Simulation for Type I (Time) and Type II (Failure) Censored Weibull Data
+
+by Robert Andrew Stevens, February 20, 2014
+
+# Outline
+
+1. Introduction:  Background, Objective, Test Plan
+
+2. Terminology
+
+3. Tests: Summary, Binomial, Maximum Likelihood, Maximum Likelihood Constrained, Regression, Cox Proportional Hazards
+
+4. Simulation:  Why, Program
+
+5. Results:  By Test, Comparing Each Test
+
+6. What's Next?
+
+# 1. Introduction
+
+## Background
+
+Definition:  Ozone layer 
+
+https://en.wikipedia.org/wiki/Ozone_layer
+
+Problem:  Ozone depletion potential  
+
+https://en.wikipedia.org/wiki/Ozone_depletion_potential
+
+Original Air Conditioning Design Refrigerant:  R-12 
+
+https://en.wikipedia.org/wiki/Dichlorodifluoromethane
+
+Alternative Air Conditioning Design Refrigerant:  R134a 
+
+https://en.wikipedia.org/wiki/R134a
+
+## Objective
+
+* Determine the probability of declaring two populations different for a given sample size
+
+* Determine the required sample size to declare two populations different with a given probability
+
+## Test Plan
+
+* Drive two different groups of cars until they experience a failure or reach 100K miles
+
+* Drive two different groups of cars until the original design experiences a predetermined number of failures
+
+# 2. Terminology
+
+* Alpha:  Probability of declaring two populations different when they are actually the same.  Also call the Type I error rate.
+
+* Beta:  Probability of declaring two populations the same when they are actually different.  Also called the Type II error rate.
+
+* Power:  Probability of declaring two populations different when they are different (= 1 - Beta).
+
+* Null Hypothesis (H0):  The hypothesis that two populations are equal.
+
+* Alternative Hypothesis (H1):  The hypothesis that two populations are not equal.
+
+* Censored:  Suspended, removed from the test before failure occurs.
+
+* Type I censoring:  Each item remains on test until failure or until a specified time is reached (same for each item).  Also called time censoring.
+
+* Type II censoring:  N items are put on test at the same time and testing continues until the Rth (R <= N) item fais.
+
+# 3. Tests
+
+## Tests, Test Statistics, and Rejection Criteria Summary
+
+Binomial (based on 2x2 contingency table)
+
+* BinStat = N*(N11*N2. - N21*N1.)^2 / (N.1*N.2*N1.*N2.) [without continuity correction]
+
+* 2-sided:  Reject H0 if BinStat > qchisq(1 - alpha, 1) [use alpha/2 ?]
+
+* 1-sided:  Reject H0 if P0 > P1 and BinStat > qchisq(1 - 2*alpha, 1) [use alpha ?]
+
+Maximum Likelihood
+
+* mleStat = 2*((lnL(Full) - lnL(Reduced))
+
+* 2-sided:  Reject H0 if mleStat > qchisq(1 - alpha, 2) [use alpha/2 ?]
+
+* 1-sided:  Reject H0 if Theta0 > Theta1 and mleStat > qchisq(1 - 2*alpha, 2) [use alpha ?]
+
+Maximum Likelihood Constrained (assumes equal Weibull slope parameters)
+
+* mlcStat = 2*(lnL(Full) - lnL(Reduced))
+
+* 2-sided:  Reject H0 if mlcStat > qchisq(1 - alpha, 1) [use alpha/2 ?]
+
+* 1-sided:  Reject H0 if Theta0 > Theta1 and mlcStat > qchisq(1 - 2*alpha, 1) [use alpha ?]
+
+Regression
+
+* regStat = (b/se(b))^2
+
+* 2-sided:  Reject H0 if regStat > qchisq(1 - alpha, 1) [use alpha/2 ?]
+
+* 1-sided:  Reject H0 if b < 0 and regStat > qchisq(1 - 2*alpha, 1) [use alpha ?]
+
+Cox Proportional Hazards
+
+* cphStat = (b/se(b))^2
+
+* 2-sided:  Reject H0 if cphStat > qchisq(1 - alpha, 1) [use alpha/2 ?]
+
+* 1-sided:  Reject H0 if b < 0 and cphStat > qchisq(1 - 2*alpha, 1) [use alpha ?]
+
+Example:
+
+* Sample = 0 if original design
+
+* Sample = 1 if alternative design
+
+* Time = Time to failure or time to censor (test stopped before failure)
+
+* Censcode = 0 if censored (did not fail yet, i.e. Failed = FALSE)
+
+* Censcode = 1 if failed (Failed = TRUE)
+
+```{r}
+library(survival)
+setwd("C:\\Users\\rs62172\\Documents\\PowerSim\\")
+data <- read.csv("PowerSimTest.csv", header = TRUE, sep = ",") # sample data
+data
+alpha = 0.10
+```
+
+## Binomial
+
+```{r}
+(dataTable <- table(data$Sample, data$Censcode))
+(BinTest <- chisq.test(dataTable, correct = FALSE)) # without continuity correction
+(BinStat <- BinTest$statistic)
+# 2-sided
+(BinCritical2 <- qchisq(1 - alpha, 1)) 
+BinStat > BinCritical2
+# 1-sided
+(P0 <- dataTable[1, 1]/(dataTable[1, 1] + dataTable[1, 2]))
+(P1 <- dataTable[2, 1]/(dataTable[2, 1] + dataTable[2, 2]))
+P0 > P1
+(BinCritical1 <- qchisq(1 - 2*alpha, 1)) 
+BinStat > BinCritical1
+```
+
+## Maximum likelihood
+
+```{r}
+weibull0 <- survreg(Surv(Time, Censcode) ~ 1, data[data$Sample == 0, ], dist = "weibull")
+summary(weibull0)
+weibull1 <- survreg(Surv(Time, Censcode) ~ 1, data[data$Sample == 1, ], dist = "weibull")
+summary(weibull1)
+weibullR <- survreg(Surv(Time, Censcode) ~ 1, data, dist = "weibull")
+summary(weibullR)
+(mleStat <- 2*((weibull0$loglik[1] + weibull1$loglik[1]) - weibullR$loglik[1]))
+# 2-sided
+(mleCritical2 <- qchisq(1 - alpha, 2)) 
+mleStat > mleCritical2
+# 1-sided
+(Theta0 <- exp(weibull0$coefficients))
+(Theta1 <- exp(weibull1$coefficients))
+Theta0 > Theta1
+(mleCritical1 <- qchisq(1 - 2*alpha, 2)) 
+mleStat > mleCritical2
+```
+
+## Maximum likelihood constrained
+
+```{r}
+weibullF <- survreg(Surv(Time, Censcode) ~ Sample, data, dist = "weibull")
+summary(weibullF)
+weibullR <- survreg(Surv(Time, Censcode) ~ 1, data, dist = "weibull")
+summary(weibullR)
+(mlcStat <- 2*(weibullF$loglik[2] - weibullR$loglik[1]))
+# 2-sided
+(mlcCritical2 <- qchisq(1 - alpha, 1)) 
+mlcStat > mlcCritical2
+# 1-sided
+(Theta0 <- exp(weibullF$coefficients[1]))
+(Theta1 <- exp(weibullF$coefficients[1] + weibullF$coefficients[2]))
+Theta0 > Theta1
+(mlcCritical1 <- qchisq(1 - 2*alpha, 1)) 
+mlcStat > mleCritical1
+```
+
+## Regression
+
+```{r}
+weibullF <- survreg(Surv(Time, Censcode) ~ Sample, data, dist = "weibull")
+summary(weibullF)
+(b1 <- weibullF$coefficients[2])
+(regStat <- (b1/sqrt(weibullF$var[2, 2]))^2)
+# 2-sided
+(regCritical2 <- qchisq(1 - alpha, 1)) 
+regStat > regCritical2
+# 1-sided
+b1 < 0
+(regCritical1 <- qchisq(1 - 2*alpha, 1)) 
+regStat > regCritical1
+```
+
+## Cox Proportional Hazards
+
+```{r}
+coxphF <- coxph(Surv(Time, Censcode) ~ Sample, data)
+summary(coxphF)
+(b1 <- coxphF$coefficients)
+(cphStat <- (b1/sqrt(coxphF$var))^2)
+# 2-sided
+(cphCritical2 <- qchisq(1 - alpha, 1)) 
+cphStat > cphCritical2
+# 1-sided
+b1 > 0
+(cphCritical1 <- qchisq(1 - 2*alpha, 1)) 
+cphStat > cphCritical1
+```
+
+# 4. Simulation
+
+## Why
+
+Why do a simulation?  Quotes from *Statistical Models and Methods for Lifetime Data* by Lawless (1982, p. 195-7):
+
+Life test plans under the Weibull model **have not been very thoroughly investigated**, however, because of the complexity of the associated distributional problems.  This is unfortunate and sometimes leads to the use of plans based on the exponential distribution when plans based on the Weibull distributions would be more appropriate.
+
+Even for quite complicated plans the large-sample methods given for Type I censored data generally provide valid procedures.  However, it is almost always impossible to determine exact small-sample properties or to make effective compariison of plans, **except by simulation**.
+
+Further development of test plans under a Weibull model would be useful.  Plans for comparing distributions are also of interest. Thoman and Bain (1969) present a few power functions for two-sample problems, **but not a great deal is available**...
+
+## Program
+
+First need to write functions for each statistical test:
+
+* binTest = Binomial Test
+
+* mleTest = Maximum Likelihood Test
+
+* mlcTest = Maximum Likelihood Constrained Test
+
+* regTest = Regression Test
+
+* cphTest = Cox Proportional Hazards Test
+
+Need to commonize the functions, i.e. use same names in data frame that is returned to the simulation.
+
+But only need "decision1" and "decision2" returned from the functions, with TRUE = 1 and FALSE = 0 to perform calculations on the results.
+
+```{r}
+binTest <-  function(Sample, Time, Censcode, a) { 
+  dataTable <- table(Sample, Censcode)
+  binTest <- chisq.test(dataTable, correct = FALSE) 
+  testStat <- binTest$statistic
+  # 2-sided
+  critical2 <- qchisq(1 - a, 1) 
+  decision2 <- ifelse(testStat > critical2, 1, 0)
+  # 1-sided
+  p0 <- dataTable[1, 1]/(dataTable[1, 1] + dataTable[1, 2])
+  p1 <- dataTable[2, 1]/(dataTable[2, 1] + dataTable[2, 2])
+  delta <- p0 - p1
+  critical1 <- qchisq(1 - 2*a, 1) 
+  decision1 <- ifelse(delta > 0 & testStat > critical1, 1, 0)
+  return(list("decision1" = decision1, "decision2" = decision2))
+}
+
+mleTest <-  function(Sample, Time, Censcode, a) { 
+  data <- data.frame(Sample, Time, Censcode)
+  weibull0 <- survreg(Surv(Time, Censcode) ~ 1, data[data$Sample == 0, ], dist = "weibull")
+  weibull1 <- survreg(Surv(Time, Censcode) ~ 1, data[data$Sample == 1, ], dist = "weibull")
+  weibullR <- survreg(Surv(Time, Censcode) ~ 1, data, dist = "weibull")
+  testStat <- 2*((weibull0$loglik[1] + weibull1$loglik[1]) - weibullR$loglik[1])
+  # 2-sided
+  critical2 <- qchisq(1 - a, 2) 
+  decision2 <- ifelse(testStat > critical2, 1, 0)
+  # 1-sided
+  theta0 <- exp(weibull0$coefficients)
+  theta1 <- exp(weibull1$coefficients)
+  delta <- theta0 - theta1
+  critical1 <- qchisq(1 - 2*a, 2) 
+  decision1 <- ifelse(delta > 0 & testStat > critical2, 1, 0)
+  return(list("decision1" = decision1, "decision2" = decision2))
+}
+
+mlcTest <-  function(Sample, Time, Censcode, a) { 
+  weibullF <- survreg(Surv(Time, Censcode) ~ Sample, dist = "weibull")
+  weibullR <- survreg(Surv(Time, Censcode) ~ 1, dist = "weibull")
+  testStat <- 2*(weibullF$loglik[2] - weibullR$loglik[1])
+  # 2-sided
+  critical2 <- qchisq(1 - a, 1) 
+  decision2 <- ifelse(testStat > critical2, 1, 0)
+  # 1-sided
+  theta0 <- exp(weibullF$coefficients[1])
+  theta1 <- exp(weibullF$coefficients[1] + weibullF$coefficients[2])
+  delta <- theta0 - theta1
+  critical1 <- qchisq(1 - 2*a, 1)
+  decision1 <- ifelse(delta > 0 & testStat > critical1, 1, 0)
+  return(list("decision1" = decision1, "decision2" = decision2))
+}
+
+regTest <- function(Sample, Time, Censcode, a) {
+  weibullF <- survreg(Surv(Time, Censcode) ~ Sample, dist = "weibull")
+  delta <- weibullF$coefficients[2]
+  testStat <- (delta/sqrt(weibullF$var[2, 2]))^2
+  # 2-sided
+  critical2 <- qchisq(1 - a, 1) 
+  decision2 <- ifelse(testStat > critical2, 1, 0)
+  # 1-sided
+  critical1 <- qchisq(1 - 2*a, 1) 
+  decision1 <- ifelse(delta < 0 & testStat > critical1, 1, 0)
+  return(list("decision1" = decision1, "decision2" = decision2))
+}
+
+cphTest <- function(Sample, Time, Censcode, a) {
+  coxph <- coxph(Surv(Time, Censcode) ~ Sample)
+  delta <- coxph$coefficients
+  testStat <- (delta/sqrt(coxph$var))^2
+  # 2-sided
+  critical2 <- qchisq(1 - a, 1) 
+  decision2 <- ifelse(testStat > critical2, 1, 0)
+  # 1-sided
+  critical1 <- qchisq(1 - 2*a, 1) 
+  decision1 <- ifelse(delta > 0 & testStat > critical1, 1, 0)
+  return(list("decision1" = decision1, "decision2" = decision2))
+}
+
+with(data, binTest(Sample, Time, Censcode, alpha))
+with(data, mleTest(Sample, Time, Censcode, alpha))
+with(data, mlcTest(Sample, Time, Censcode, alpha))
+with(data, regTest(Sample, Time, Censcode, alpha))
+with(data, cphTest(Sample, Time, Censcode, alpha))
+```
+
+Now need to write a function to generate random values from Weibull distribution and censor them for both Plan 1 (Type I or time censoring) and Plan 2 (Type II or failure censoring).
+
+```{r}
+lifedata <- function(alpha, beta, cdf1, cdf2, size, testTime) {
+  
+  theta1 <- testTime/((-log(1 - cdf1))^(1/beta))
+  theta2 <- testTime/((-log(1 - cdf2))^(1/beta))
+
+  sampleVec  <- c(rep(0, size), rep(1, size))
+  obsVec  <- rep(seq(1, size, 1), 2)
+  
+  timeVec1 <- rweibull(size, beta, theta1)
+  timeVec2 <- rweibull(size, beta, theta2)
+  time1Vec  <- c(timeVec1, timeVec2)
+  time2Vec  <- c(timeVec1, timeVec2)
+  cens1Vec <- rep(1, 2*size) # initialize to 1
+  cens2Vec <- rep(1, 2*size) # initialize to 1
+  
+  censored1 <- ifelse(time1Vec > testTime, TRUE, FALSE)
+  time1Vec[censored1] <- testTime
+  cens1Vec[censored1] <- 0
+  
+  rankVec1 <- rank(timeVec1)
+  rankVec2 <- rank(timeVec2)
+  rankVec  <- c(rankVec1, rankVec2)
+  
+  ranktime <- ceiling(cdf1*size)
+  cens2time <- timeVec1[which(rankVec1 == ranktime)] # Type II censoring time
+  
+  censored2 <- ifelse(time2Vec > cens2time, TRUE, FALSE)
+  time2Vec[censored2] <- cens2time
+  cens2Vec[censored2] <- 0
+  
+  df <- data.frame(
+    sample = sampleVec,
+    obs = obsVec,
+    time1 = time1Vec,
+    cens1 = cens1Vec,
+    rank = rankVec,
+    time2 = time2Vec,
+    cens2 = cens2Vec
+  )
+}
+```
+
+Now ready for the simulation - try 500 to start
+
+```{r}
+set.seed(56497)
+CDF1 <- 0.4
+nSim <- 500
+slope <- 2
+sampleSize <- 15
+tTime <- 100
+Alpha <- 0.1
+
+CDF2 <- seq(CDF1, 0.9, 0.05)
+simSize <- length(CDF2)*nSim
+
+results <- data.frame(
+  Alpha = rep(Alpha, simSize),
+  Slope = rep(slope, simSize),
+  CDF1 = rep(CDF1, simSize),
+  CDF2 = rep(CDF2, nSim),
+  samples = rep(sampleSize, nSim),
+  tTime = rep(tTime, simSize),
+  bin11 = rep(0, simSize),
+  bin12 = rep(0, simSize),
+  bin21 = rep(0, simSize),
+  bin22 = rep(0, simSize),
+  mle11 = rep(0, simSize),
+  mle12 = rep(0, simSize),
+  mle21 = rep(0, simSize),
+  mle22 = rep(0, simSize),
+  mlc11 = rep(0, simSize),
+  mlc12 = rep(0, simSize),
+  mlc21 = rep(0, simSize),
+  mlc22 = rep(0, simSize),
+  reg11 = rep(0, simSize),
+  reg12 = rep(0, simSize),
+  reg21 = rep(0, simSize),
+  reg22 = rep(0, simSize),
+  cph11 = rep(0, simSize),
+  cph12 = rep(0, simSize),
+  cph21 = rep(0, simSize),
+  cph22 = rep(0, simSize)
+)
+```
+
+For the next part, would like to find a way to do this without a "for" loop and using data frame column names, not numbers.  Suppressed the warnings, but they should be investigated.
+
+```{r warning = FALSE}
+for(i in seq(1:simSize)) {
+  testData <- with(results[i, ], lifedata(Alpha, Slope, CDF1, CDF2, samples, tTime))
+  results[i,  7] <- with(testData, binTest(sample, time1, cens1, Alpha))$decision1
+  results[i,  8] <- with(testData, binTest(sample, time1, cens1, Alpha))$decision2
+  results[i,  9] <- with(testData, binTest(sample, time2, cens2, Alpha))$decision1
+  results[i, 10] <- with(testData, binTest(sample, time2, cens2, Alpha))$decision2
+  results[i, 11] <- with(testData, mleTest(sample, time1, cens1, Alpha))$decision1
+  results[i, 12] <- with(testData, mleTest(sample, time1, cens1, Alpha))$decision2
+  results[i, 13] <- with(testData, mleTest(sample, time2, cens2, Alpha))$decision1
+  results[i, 14] <- with(testData, mleTest(sample, time2, cens2, Alpha))$decision2
+  results[i, 15] <- with(testData, mlcTest(sample, time1, cens1, Alpha))$decision1
+  results[i, 16] <- with(testData, mlcTest(sample, time1, cens1, Alpha))$decision2
+  results[i, 17] <- with(testData, mlcTest(sample, time2, cens2, Alpha))$decision1
+  results[i, 18] <- with(testData, mlcTest(sample, time2, cens2, Alpha))$decision2
+  results[i, 19] <- with(testData, regTest(sample, time1, cens1, Alpha))$decision1
+  results[i, 20] <- with(testData, regTest(sample, time1, cens1, Alpha))$decision2
+  results[i, 21] <- with(testData, regTest(sample, time2, cens2, Alpha))$decision1
+  results[i, 22] <- with(testData, regTest(sample, time2, cens2, Alpha))$decision2
+  results[i, 23] <- with(testData, cphTest(sample, time1, cens1, Alpha))$decision1
+  results[i, 24] <- with(testData, cphTest(sample, time1, cens1, Alpha))$decision2
+  results[i, 25] <- with(testData, cphTest(sample, time2, cens2, Alpha))$decision1
+  results[i, 26] <- with(testData, cphTest(sample, time2, cens2, Alpha))$decision2
+}
+```
+
+# 5. Results
+
+Combine/stack test results for the 5 tests to show combinations of lines on the same plots, using the follow naming convention:
+
+* 11 = Type I censored data, 1-sided hypothesis test
+
+* 12 = Type I censored data, 2-sided hypothesis test
+
+* 21 = Type II censored data, 1-sided hypothesis test
+
+* 22 = Type II censored data, 2-sided hypothesis test
+
+Plotting function to minimize the code:
+
+```{r}
+plotNTests <- function(simData, plotTitle, plotVars) {
+  require(ggplot2) # for "gglot"
+  require(reshape2) # for "melt"
+  # id.vars = all the variables to keep but not split apart on
+  # measure.vars = source columns
+  # variable.name = name of the destination column that will identify the original
+  # column that the measurement came from
+  # value.name = value of variable.name
+  plotData <- melt(simData,
+                   id.vars = c("Alpha", "Slope", "CDF1", "CDF2", "samples"),
+                   measure.vars = plotVars,
+                   variable.name = "Test",
+                   value.name = "Reject")
+  testAgg <- aggregate(Reject ~ Test + CDF2, plotData, mean)
+  ggplot(testAgg, aes(y = Reject, x = CDF2, color = Test)) + 
+    geom_smooth(data = testAgg, method = loess, se = FALSE) +
+    scale_x_continuous(breaks = seq(0.4, 0.9, 0.10)) +
+    scale_y_continuous(breaks = seq(0.0, 1.0, 0.10), limits = c(0, 1)) +
+    labs(title = plotTitle, x = "Sample 2 Failure Proportion", y = "Probability Reject")
+}
+```
+
+## Results By Test:  bin, mle, mlc, reg, cph
+
+```{r ggplot, fig.width = 10, fig.height = 7.5}
+plotTitle <- "Binomial Test Power Comparison"
+plotVars <- c("bin11", "bin12", "bin21", "bin22")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "MLE Test Power Comparison"
+plotVars <- c("mle11", "mle12", "mle21", "mle22")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "MLE Constrained Test Power Comparison" 
+plotVars <- c("mlc11", "mlc12", "mlc21", "mlc22")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "Regression Power Comparison"
+plotVars <- c("reg11", "reg12", "reg21", "reg22")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "Cox Proportional Hazards Power Comparison"
+plotVars <- c("cph11", "cph12", "cph21", "cph22")
+plotNTests(results, plotTitle, plotVars)                         
+```
+
+## Results Comparing Each Test
+
+```{r fig.width = 10, fig.height = 7.5}
+plotTitle <- "Type I Censored, 1-sided Test Power Comparison"
+plotVars <- c("bin11", "mle11", "mlc11", "reg11", "cph11")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "Type I Censored, 2-sided Test Power Comparison"
+plotVars <- c("bin12", "mle12", "mlc12", "reg12", "cph12")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "Type II Censored, 1-sided Test Power Comparison"
+plotVars <- c("bin21", "mle21", "mlc21", "reg21", "cph21")
+plotNTests(results, plotTitle, plotVars)
+
+plotTitle <- "Type II Censored, 2-sided Test Power Comparison"
+plotVars <- c("bin22", "mle22", "mlc22", "reg22", "cph22")
+plotNTests(results, plotTitle, plotVars)
+```
+
+# 6. What's Next?
+
+* Investigate warnings:  Chi-squared approximation may be incorrect, Ran out of iterations and did not converge, Loglik converged before variable  1 ; beta may be infinite.
+
+* Check/confirm results, especially Type I error rates (alpha)
+
+* Add variable sample sizes, e.g. 15, 20, 25, etc.
+
+* Explore ways to speed up the simulation:  better programming techniques (e.g. alternative to "for" loop) and parallel computing
+
+* Are there packages available that offer improvments or more functionality?  E.g. ClinicalTrials Task view
+
+* Bayesian approaches?
+
+**Any suggestions?**
