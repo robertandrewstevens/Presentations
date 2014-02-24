@@ -1,0 +1,398 @@
+# A Tale of Two Combines
+
+by Robert A. Stevens, February 24, 2014
+
+Adpated from “Modeling and Analysis of Row Crop Harvesting Patterns by Combines” by A.C. Hansen, Q. Zhang, and T.A. Wilcox, Transactions of the ASABE, Vol. 50(1):5-12 (2007)
+
+# Background Info:  Domain Knowledge
+
+Table 1. Summary of equipment, field details, and electronic flags.
+
+Figure 1. Harvesting patterns for single combine in a row crop. 
+
+# Data
+
+## Combine 1
+
+1. Corn-harvesting.xls (2 tabs)
+
+2. Corn-harvesting-CAN.csv (CAN tab)
+
+3. Combine1.pptx
+
+## Combine 2
+
+1. Corn-Harvest-2.xls
+
+2. Corn-Harvest-2-CAN.csv
+
+3. Combine2a.pptx (as delivered – records out of time order)
+
+4. Combine2b.pptx (fixed – records in time order)
+
+# Variables Captured
+
+1. LONGITUDE
+
+2. LATITUDE
+
+3. TIME
+
+4. STATUS (head position:  1 = down, 0 = up)
+
+5. DRY_YIELD (bushels/acre)
+
+6. DAYOFMONTH
+
+7. HOUR
+
+8. MINUTE
+
+9. SECOND
+
+10. SPEED (ground speed in mph)
+
+11. TORQUE (% of torque at rated)
+
+12. ENG_SPD (rpm)
+
+13. CURVE (unloading auger:  1 = off, 2 = engaged)
+
+14. FUEL (% of maximum?)
+
+15. FUEL_KG.HR (fuel rate in kg/hour)
+
+16. GRD_SPD (ground speed in km/hour)
+
+17. MPH (ground speed in mph)
+
+Load the necessary R packages.
+
+```{r}
+library(ggplot2)    # Used for several of the plots
+library(maps)       # Required for correct Lon/Lat projections for ggplot2 coord_map()
+library(plyr)       # Used for sorting dataframe to make sure in the correct order
+library(ggmap)      # Used for Google Earth style plots
+library(rpart)      # Recursive Partitioning data mining routine
+library(rpart.plot) # Improves the rpart plots
+```
+
+Code to add footnotes to all of the plots from "R: Good practice - adding footnotes to graphics"
+
+http://ryouready.wordpress.com/2009/02/17/r-good-practice-adding-footnotes-to-graphics/
+
+```{r}
+# basic information at the beginning of each script
+sourceText <- "Source: 'Modeling and Analysis of Row Crop Harvesting Patterns by Combines' by Hansen et al."
+scriptName <- "Script: CombineV2.Rmd"
+author <- "RAStevens"
+footnote <- paste(sourceText, scriptName, format(Sys.time(), "%d %b %Y"), author, sep=" / ")
+
+# default footnote is today's date, cex = 0.7 (size) and color is a kind of grey
+
+makeFootnote <- function(footnoteText = format(Sys.time(), "%d %b %Y"), size = 0.7, color = grey(0.5)) {
+  require(grid)
+  pushViewport(viewport())
+  grid.text(label= footnoteText ,
+            x = unit(1,"npc") - unit(2, "mm"),
+            y = unit(2, "mm"),
+            just = c("right", "bottom"),
+            gp = gpar(cex = size, col = color))
+  popViewport()
+}
+```
+
+Load, prepare, and merge the two data sets.
+
+```{r}
+setwd("C:\\Users\\rs62172\\Documents\\Corn\\") # user specific - need to edit to run
+filename <- "Corn-harvesting-CAN.csv"
+Combine1 <- read.csv(filename, header=TRUE, as.is = TRUE)
+filename <- "Corn-Harvest-2-CAN.csv"
+Combine2 <- read.csv(filename, header=TRUE, as.is = TRUE)
+Combine2 <- arrange(Combine2, DAYOFMONTH, HOUR, MINUTE, SECOND) # put in the right time order
+Combine1 <- Combine1[ , -c(3:4)] # remove Easting and Northing
+dim(Combine1)
+Combine2 <- Combine2[ , -c(11)] # remove TIMELAPSE
+dim(Combine2)
+Combine1$Combine <- 1
+Combine2$Combine <- 2
+Combine12 <- rbind(Combine1, Combine2)
+Combine12$Combine <- as.factor(Combine12$Combine)
+dim(Combine12)
+mapLon <- median(Combine12$LONGITUDE)
+mapLat <- median(Combine12$LATITUDE)
+```
+
+The location is:
+
+```{r}
+revgeocode(c(mapLon, mapLat))
+```
+
+Use ggmap with zoom values 10 to 17 to get an idea of where this is:
+
+```{r ggplot, fig.width = 10, fig.height = 7.5}
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 10"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 10, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 11"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 11, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 12"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 12, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 13"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 13, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 14"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 14, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 15"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 15, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 16"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 16, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Combine 1 and Combine 2 Paths using ggmap with zoom = 17"
+map <- get_googlemap(center = c(lon = mapLon, lat = mapLat), zoom = 17, maptype = 'hybrid')
+ggmap(map) + 
+  geom_path(data = Combine12, aes(x = LONGITUDE, y = LATITUDE, color = Combine), size = I(1)) +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+```
+
+Explore the data using combine paths and color coding for other variables:
+
+```{r fig.width = 10, fig.height = 7.5}
+Combine12$Combine <- as.factor(Combine12$Combine)
+plotTitle <- "Combine 1 and Combine 2 Paths"
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = Combine, size=I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle), x = "Longitude", y = "Latitude")
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with CURVE (unloading auger:  1 = off, 2 = engaged)"
+Combine12$CURVE <- as.factor(Combine12$CURVE)
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = CURVE, size = I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine)
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with STATUS (head position:  1 = down, 0 = up)"
+Combine12$STATUS <- as.factor(Combine12$STATUS)
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = STATUS, size = I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine)
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with Dry Yield (bushels/acre)"
+qplot(LONGITUDE, LATITUDE, data=Combine12, geom="point", color=DRY_YIELD, size=I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine) +
+  scale_colour_gradientn(colours = rainbow(7))
+makeFootnote(footnote)
+
+plotTitle <- "Dry Yield Histograms (Combine 1 = Red, Combine 2 = Blue)"
+ggplot(Combine12, aes(x = DRY_YIELD)) + 
+  geom_histogram(data=subset(Combine12, Combine == 1), fill = "red", alpha = 0.2) +
+  geom_histogram(data=subset(Combine12, Combine == 2), fill = "blue", alpha = 0.2) +
+  labs(title = paste(plotTitle), x = "Dry Yield (bushels/acre)") + 
+  theme_bw()
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with Engine Speed (rpm)"
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = ENG_SPD, size = I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine) +
+  scale_colour_gradientn(colours = rainbow(7))
+makeFootnote(footnote)
+
+plotTitle <- "Engine Speed Histograms (Combine 1 = Red, Combine 2 = Blue)"
+ggplot(Combine12, aes(x=ENG_SPD)) + 
+  geom_histogram(data=subset(Combine12, Combine == 1), fill = "red", alpha = 0.2) +
+  geom_histogram(data=subset(Combine12, Combine == 2), fill = "blue", alpha = 0.2) +
+  labs(title = paste(plotTitle), x = "Engine Speed (rpm)") + 
+  theme_bw() +
+  xlim(2100, 2500)
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with TORQUE (% of torque at rated)"
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = TORQUE, size = I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine) +
+  scale_colour_gradientn(colours = rainbow(7))
+makeFootnote(footnote)
+
+plotTitle <- "TORQUE Histograms (Combine 1 = Red, Combine 2 = Blue)"
+ggplot(Combine12, aes(x = TORQUE)) + 
+  geom_histogram(data=subset(Combine12, Combine == 1), fill = "red", alpha = 0.2) +
+  geom_histogram(data=subset(Combine12, Combine == 2), fill = "blue", alpha = 0.2) +
+  labs(title = paste(plotTitle), x = "TORQUE (% of torque at rated)") + 
+  theme_bw()
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with Ground Speed (mph)"
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = MPH, size = I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine) +
+  scale_colour_gradientn(colours = rainbow(7))
+makeFootnote(footnote)
+
+plotTitle <- "Ground Speed Histograms (Combine 1 = Red, Combine 2 = Blue)"
+ggplot(Combine12, aes(x=MPH)) + 
+  geom_histogram(data=subset(Combine12, Combine == 1), fill = "red", alpha = 0.2) +
+  geom_histogram(data=subset(Combine12, Combine == 2), fill = "blue", alpha = 0.2) +
+  labs(title = paste(plotTitle), x = "Ground Speed (mph)") + 
+  theme_bw()
+makeFootnote(footnote)
+
+plotTitle <- "Harvest Pattern for Combines 1 and 2 with Fuel Rate (kg/hour)"
+qplot(LONGITUDE, LATITUDE, data = Combine12, geom = "point", color = FUEL_KG.HR, size = I(2)) +
+  scale_x_continuous('Longitude') + 
+  scale_y_continuous('Latitude') + 
+  coord_map() +
+  labs(title = paste(plotTitle)) +
+  facet_grid(. ~ Combine) +
+  scale_colour_gradientn(colours = rainbow(7))
+makeFootnote(footnote)
+
+plotTitle <- "Fuel Rate Histograms (Combine 1 = Red, Combine 2 = Blue)"
+ggplot(Combine12, aes(x = FUEL_KG.HR)) + 
+  geom_histogram(data = subset(Combine12, Combine == 1), fill = "red", alpha = 0.2) +
+  geom_histogram(data = subset(Combine12, Combine == 2), fill = "blue", alpha = 0.2) +
+  labs(title = paste(plotTitle), x = "Fuel Rate (kg/hour)") + 
+  theme_bw()
+makeFootnote(footnote)
+```
+
+Now try some data mining with Recursive Partitioning (rpart):
+
+```{r fig.width = 10, fig.height = 7.5}
+FuelRate.rp <- rpart(FUEL_KG.HR ~ STATUS + DRY_YIELD + TORQUE + ENG_SPD + CURVE + MPH + Combine, 
+                     data = Combine12, cp = 1e-3)
+plotcp(FuelRate.rp)
+makeFootnote(footnote)
+```
+
+The last node just crosses the threhold, so no need to prune the tree.
+
+```{r}
+FuelRate.rp
+```
+
+Note:  the only variables that appear are TORQUE, ENG_SPD and CURVE (unloading auger:  1 = off, 2 = engaged).
+
+```{r fig.width = 10, fig.height = 7.5}
+plotTitle <- "rpart Results for Fuel Rate (kg/hour)"
+plot(FuelRate.rp, main = plotTitle)
+text(FuelRate.rp, digits=4, cex=0.65)
+makeFootnote(footnote)
+```
+
+That's hard to read, so try "prp" (pretty rpart):
+
+```{r fig.width = 10, fig.height = 7.5}
+plotTitle <- "rpart Results for Fuel Rate (kg/hour) using prp"
+prp(FuelRate.rp, main = plotTitle)
+makeFootnote(footnote)
+```
+
+That's better, but still difficult to explain, so try enhancing prp:
+
+```{r fig.width = 10, fig.height = 7.5}
+plotTitle <- "rpart Results for Fuel Rate (kg/hour) using prp Enhanced"
+prp(FuelRate.rp, type = 2, nn = TRUE, fallen.leaves = TRUE, faclen = 0, varlen = 0, shadow.col = "grey", branch.lty = 3, 
+    main = plotTitle)
+makeFootnote(footnote)
+```
+
+Now plot all 4 variables on one plot:  ENG_SPD, TORQUE, CURVE and Fuel Rate.  Played around with ggplot2's "alpha" and "size" to create a pseudo contour plot.
+
+```{r fig.width = 10, fig.height = 7.5}
+plotTitle <- "ENG_SPD versus TORQUE by CURVE (unloading auger:  1 = off, 2 = engaged)"
+qplot(ENG_SPD, TORQUE, data = Combine12, color = FUEL_KG.HR, alpha = I(1/4), size = I(4)) + 
+  facet_grid(. ~ CURVE) +
+  labs(title = paste(plotTitle)) +
+  scale_colour_gradientn(colours = rainbow(7)) +
+  theme_bw()
+makeFootnote(footnote)
+```
+
+Even though Combine didn't show up in the data mining results, put in in anyway to see what it looks like.
+
+```{r fig.width = 10, fig.height = 7.5}
+plotTitle <- "ENG_SPD versus TORQUE by CURVE (columns) and Combine (rows)"
+qplot(ENG_SPD, TORQUE, data = Combine12, color = FUEL_KG.HR, alpha = I(1/4), size = I(4)) + 
+  facet_grid(Combine ~ CURVE) +
+  labs(title = paste(plotTitle)) +
+  scale_colour_gradientn(colours = rainbow(7)) +
+  theme_bw()
+makeFootnote(footnote)
+```
+
+It seems the two combines performed differently because they had different levels of Engine Speed and Torque - but why?
+
+# Still work to do
+
+* Calculate productivity metrics (e.g. tons/hour):  Need to “normalize” the data
+
+* Add Elevation/Altitude and other environmental variables
+
+* Predictive Modeling – interactions?  nonlinear?
+
+* Animations:  R, Tableau, other…
+
+## All along the way, review results with engineers:
+
+* Why are Combines 1 and 2 different?  Machine or Operator?
+
+* Or maybe there were data collection errors?
