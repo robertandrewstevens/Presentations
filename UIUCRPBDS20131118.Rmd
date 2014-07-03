@@ -1,3 +1,10 @@
+---
+title: "UIUC Big Data Summit"
+author: "Robert A. Stevens"
+date: "July 2, 2014"
+output: pdf_document
+---
+
 # University of Illinois at Urbana-Champaign Research Park Big Data Summit
 
 by Robert A. Stevens, John Deere, December 6, 2013
@@ -145,7 +152,7 @@ http://en.wikipedia.org/wiki/Empire-building
 
 * Business e-mail stevensroberta@johndeere.com
 
-* Personal e-mail	robertandrewstevens@gmail.com
+* Personal e-mail  robertandrewstevens@gmail.com
 
 * LinkedIn http://www.linkedin.com/pub/robert-andrew-stevens-cfa/6a/a04/315
 
